@@ -1,0 +1,42 @@
+name: CI
+
+on: [push, workflow_dispatch]
+
+jobs:
+  build:
+
+    runs-on: windows-latest
+
+    steps:
+    - name: Download ngrok
+      run: Invoke-WebRequest https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-windows-amd64.zip -OutFile ngrok.zip
+
+    - name: Extract ngrok
+      run: Expand-Archive ngrok.zip -DestinationPath .
+
+    - name: Add ngrok to PATH
+      run: $env:PATH += ";$pwd\ngrok"
+
+    - name: Authenticate ngrok
+      run: .\ngrok.exe authtoken $Env:NGROK_AUTH_TOKEN
+      env:
+        NGROK_AUTH_TOKEN: ${{ secrets.NGROK_AUTH_TOKEN }}
+
+    - name: Enable RDP
+      run: |
+        Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0
+        Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
+        Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "UserAuthentication" -Value 1
+        net user runneradmin P@ssw0rd! /add
+        net localgroup administrators runneradmin /add
+
+    - name: Start ngrok tunnel
+      run: .\ngrok.exe tcp 3389
+
+    - name: Keep alive
+      run: |
+        while ($true) {
+          Write-Host "Keeping session alive..."
+          Start-Sleep -Seconds 300
+        }
+        
